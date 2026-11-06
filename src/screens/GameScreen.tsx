@@ -8,6 +8,8 @@ import { WORLD } from '@/engine/world';
 import type { Combatant } from '@/engine/types';
 import { useGameStore } from '@/store/useGameStore';
 import { useWorldStore } from '@/store/useWorldStore';
+import { useNetStore } from '@/store/useNetStore';
+import { useCoopSync, broadcastCast } from '@/net/useCoopSync';
 import { palette } from '@/theme/tokens';
 import { Joystick, type StickVector } from '@/ui/Joystick';
 import { ActionBar, Minimap, TargetFrame } from '@/ui/Hud';
@@ -33,15 +35,29 @@ export function GameScreen() {
     combatLog,
   } = useWorldStore();
 
+  const netRole = useNetStore((s) => s.role);
+  const netSeed = useNetStore((s) => s.seed);
+  const selfId = useNetStore((s) => s.selfId);
   const [camera, setCamera] = useState<Camera>({ x: WORLD.center.x, y: WORLD.center.y + 6, zoom: 10 });
   const [paused, setPaused] = useState(false);
   const stickRef = useRef<StickVector>({ x: 0, y: 0, mag: 0 });
 
-  // Boot the world once for this character.
+  useCoopSync();
+
+  // Boot the world once for this character. In a party the host is authoritative;
+  // joiners render the host's stream and forward input instead.
   useEffect(() => {
-    start({ name: character.name, classId: character.classId, level: character.level });
+    const authority = netRole !== 'joiner';
+    start({
+      name: character.name,
+      classId: character.classId,
+      level: character.level,
+      seed: netRole === 'solo' ? 20260101 : netSeed || 20260101,
+      id: netRole === 'solo' ? 'local-player' : selfId || 'local-player',
+      authority,
+    });
     return () => stop();
-  }, [character.name, character.classId, character.level, start, stop]);
+  }, [character.name, character.classId, character.level, netRole, netSeed, selfId, start, stop]);
 
   // Fixed-step simulation loop, decoupled from React rendering.
   useEffect(() => {
@@ -299,7 +315,19 @@ export function GameScreen() {
             classId={classDef.id}
             cooldowns={snapshot.cooldowns}
             resource={localPlayer.resource}
-            onCast={(a: AbilityDef) => castAbility(a.id)}
+            onCast={(a: AbilityDef) => {
+              castAbility(a.id);
+              const me = snapshot.players.find((p) => p.id === localPlayerId);
+              if (netRole !== 'solo' && me) {
+                const t = snapshot.enemies.find((e) => e.id === snapshot.targetId);
+                broadcastCast(
+                  a.id,
+                  t ? t.pos.x : me.pos.x + me.facing.x * a.range,
+                  t ? t.pos.y : me.pos.y + me.facing.y * a.range,
+                  t?.id ?? null,
+                );
+              }
+            }}
             size={46}
           />
           <View style={{ gap: 4 }}>

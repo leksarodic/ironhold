@@ -3,6 +3,8 @@ import { CLASSES, abilityById, type ClassId } from '@/game/classes';
 import { World } from '@/engine/world';
 import type { Combatant, FloatingText, GroundLoot, Projectile, WorldEvent } from '@/engine/types';
 import type { StickVector } from '@/ui/Joystick';
+import type { WorldStatePayload } from '@/net/protocol';
+import { fromWireState, toWireState } from '@/net/sync';
 
 export interface WorldSnapshot {
   /** Bumped every simulation frame so selectors can re-render. */
@@ -15,6 +17,8 @@ export interface WorldSnapshot {
   cooldowns: Record<string, number>;
   targetId: string | null;
   castBar: { label: string; progress: number } | null;
+  /** True when this device is a joiner rendering host-authoritative state. */
+  remoteAuthoritative: boolean;
 }
 
 interface WorldStoreState {
@@ -26,7 +30,30 @@ interface WorldStoreState {
   /** Local UI-only event log (combat log panel). */
   combatLog: Array<{ id: number; text: string; color: string }>;
   lastXpGain: number;
-  start: (opts: { name: string; classId: ClassId; seed?: number; level?: number; id?: string }) => void;
+  /** True when this peer is the simulation authority (solo or host). */
+  isAuthority: boolean;
+  /** Latest network snapshot, used for interpolated remote rendering. */
+  remoteState: WorldStatePayload | null;
+  remoteReceivedAt: number;
+  start: (opts: {
+    name: string;
+    classId: ClassId;
+    seed?: number;
+    level?: number;
+    id?: string;
+    authority?: boolean;
+  }) => void;
+  /** Merge a party member into the local simulation (host authority). */
+  addPartyMember: (member: { id: string; name: string; classId: ClassId; level: number }) => void;
+  removePartyMember: (id: string) => void;
+  /** Apply a joiner's movement input on the host. */
+  applyRemoteInput: (peerId: string, mx: number, my: number, dt: number) => void;
+  /** Apply a joiner's ability cast on the host. */
+  applyRemoteCast: (peerId: string, abilityId: string, aim: { x: number; y: number }, targetId: string | null) => void;
+  /** Feed the authoritative snapshot into a joiner's render state. */
+  applyRemoteState: (state: WorldStatePayload) => void;
+  /** Host hook: build the snapshot to broadcast. */
+  buildWireState: () => WorldStatePayload | null;
   stop: () => void;
   setStick: (v: StickVector) => void;
   faceTowards: (angle: number) => void;
@@ -48,6 +75,7 @@ const emptySnapshot: WorldSnapshot = {
   cooldowns: {},
   targetId: null,
   castBar: null,
+  remoteAuthoritative: false,
 };
 
 let logId = 1;
@@ -70,27 +98,94 @@ export const useWorldStore = create<WorldStoreState>((set, get) => ({
   selectedTargetId: null,
   combatLog: [],
   lastXpGain: 0,
+  isAuthority: true,
+  remoteState: null,
+  remoteReceivedAt: 0,
 
-  start: ({ name, classId, seed = 20260101, level = 1, id }) => {
+  start: ({ name, classId, seed = 20260101, level = 1, id, authority = true }) => {
     pendingCasts.clear();
     const world = new World(seed);
     const playerId = id ?? 'local-player';
     world.addPlayer({ id: playerId, name, classId, level });
-    // A second party member in single-player shows the co-op HUD slot layout.
     set({
       world,
       localPlayerId: playerId,
       selectedTargetId: null,
       combatLog: [],
       snapshot: emptySnapshot,
+      isAuthority: authority,
+      remoteState: null,
     });
     get().pushLog(`Welcome to Ironhold, ${name}.`, '#e8c66a');
     get().refresh();
   },
 
+  addPartyMember: ({ id, name, classId, level }) => {
+    const { world } = get();
+    if (!world) return;
+    if (world.combatants.has(id)) return;
+    world.addPlayer({ id, name, classId, level });
+    get().pushLog(`${name} joined the party.`, '#8ef08e');
+    get().refresh();
+  },
+
+  removePartyMember: (id) => {
+    const { world, localPlayerId } = get();
+    if (!world || id === localPlayerId) return;
+    const p = world.combatants.get(id);
+    if (p) get().pushLog(`${p.name} left the party.`, '#c9b38a');
+    world.removePlayer(id);
+    get().refresh();
+  },
+
+  applyRemoteInput: (peerId, mx, my, dt) => {
+    const { world } = get();
+    if (!world) return;
+    const p = world.combatants.get(peerId);
+    if (!p || !p.alive) return;
+    const len = Math.hypot(mx, my);
+    if (len > 0.1) {
+      world.moveEntity(peerId, { x: mx, y: my }, { x: mx / len, y: my / len }, 1);
+    }
+    void dt;
+  },
+
+  applyRemoteCast: (peerId, abilityId, aim, targetId) => {
+    const { world } = get();
+    if (!world) return;
+    const ok = world.cast(peerId, abilityId, aim, targetId);
+    if (ok) {
+      const p = world.combatants.get(peerId);
+      const def = p?.classId ? abilityById(p.classId, abilityId) : undefined;
+      if (def) get().pushLog(`${p?.name ?? 'Ally'} casts ${def.name}.`, def.color);
+    }
+    get().refresh();
+  },
+
+  applyRemoteState: (state) => {
+    const { players, enemies } = fromWireState(state);
+    set((s) => ({
+      remoteState: state,
+      remoteReceivedAt: Date.now(),
+      snapshot: {
+        ...s.snapshot,
+        tick: s.snapshot.tick + 1,
+        players,
+        enemies,
+        remoteAuthoritative: true,
+      },
+    }));
+  },
+
+  buildWireState: () => {
+    const { world } = get();
+    if (!world) return null;
+    return toWireState(world, world.time);
+  },
+
   stop: () => {
     pendingCasts.clear();
-    set({ world: null, localPlayerId: null, snapshot: emptySnapshot, combatLog: [] });
+    set({ world: null, localPlayerId: null, snapshot: emptySnapshot, combatLog: [], remoteState: null });
   },
 
   setStick: (v) => set({ stick: v }),
@@ -107,18 +202,14 @@ export const useWorldStore = create<WorldStoreState>((set, get) => ({
     if (!world || !localPlayerId) return;
     const p = world.combatants.get(localPlayerId);
     if (!p || !p.classId) return;
-    if (!world.aliveEnemies.length && abilityId !== 'heal') {
-      // still allow casts; the engine reports "out of range"
-    }
     const def = abilityById(p.classId, abilityId);
     if (!def) return;
     const target = get().selectedTargetId
       ? world.combatants.get(get().selectedTargetId as string) ?? null
       : null;
-    const aim = target && target.alive ? target.pos : {
-      x: p.pos.x + p.facing.x * def.range,
-      y: p.pos.y + p.facing.y * def.range,
-    };
+    const aim = target && target.alive
+      ? target.pos
+      : { x: p.pos.x + p.facing.x * def.range, y: p.pos.y + p.facing.y * def.range };
     if (stick.mag > 0.2) {
       p.facing = { x: stick.x, y: stick.y };
     }
@@ -142,18 +233,16 @@ export const useWorldStore = create<WorldStoreState>((set, get) => ({
   },
 
   step: (dt) => {
-    const { world, localPlayerId, stick } = get();
-    if (!world || !localPlayerId) return [];
+    const { world, localPlayerId, stick, isAuthority } = get();
+    if (!world || !localPlayerId || !isAuthority) return [];
     const p = world.combatants.get(localPlayerId);
     if (p) {
-      const speedScale = 1;
       if (stick.mag > 0.12 && p.alive) {
-        world.moveEntity(localPlayerId, { x: stick.x, y: stick.y }, { x: stick.x, y: stick.y }, speedScale);
+        world.moveEntity(localPlayerId, { x: stick.x, y: stick.y }, { x: stick.x, y: stick.y }, 1);
       }
     }
     const events = world.step(dt);
 
-    // Auto-advance XP and log major events.
     for (const ev of events) {
       if (ev.type === 'death' && ev.targetId) {
         const dead = world.combatants.get(ev.targetId);
@@ -169,7 +258,6 @@ export const useWorldStore = create<WorldStoreState>((set, get) => ({
       }
     }
 
-    // Drop combat casts that finished.
     for (const [k, v] of pendingCasts) {
       if (world.time >= v.endsAt) pendingCasts.delete(k);
     }
@@ -195,6 +283,7 @@ export const useWorldStore = create<WorldStoreState>((set, get) => ({
     }
     set({
       snapshot: {
+        ...get().snapshot,
         tick: get().snapshot.tick + 1,
         players: world.players.map((p) => ({ ...p, pos: { ...p.pos }, buffs: [...p.buffs] })),
         enemies: world.enemies.map((e) => ({ ...e, pos: { ...e.pos } })),
@@ -204,6 +293,7 @@ export const useWorldStore = create<WorldStoreState>((set, get) => ({
         cooldowns: cooldownMap(world, local),
         targetId: selectedTargetId,
         castBar,
+        remoteAuthoritative: false,
       },
     });
   },
