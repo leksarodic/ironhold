@@ -1,0 +1,34 @@
+import { chromium } from 'playwright-core';
+const EXEC='/Users/aleksa/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const browser=await chromium.launch({executablePath:EXEC,headless:true,args:['--disable-features=WebRtcHideLocalIpsWithMdns']});
+const page=await browser.newPage(); await page.goto('about:blank');
+const res=await page.evaluate(async()=>{
+  const out=[];
+  const cfg={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
+  const run=async(delay)=>{
+    const a=new RTCPeerConnection(cfg), b=new RTCPeerConnection(cfg);
+    const aC=[], bC=[]; const log=[];
+    a.onicecandidate=e=>{ if(e.candidate) aC.push(e.candidate); };
+    b.onicecandidate=e=>{ if(e.candidate) bC.push(e.candidate); };
+    a.onconnectionstatechange=()=>log.push('A:'+a.connectionState);
+    b.onconnectionstatechange=()=>log.push('B:'+b.connectionState);
+    a.createDataChannel('t',{ordered:true});
+    await a.setLocalDescription(await a.createOffer());
+    const bareA=a.localDescription.sdp.split('\r\n').filter(l=>!l.startsWith('a=candidate')).join('\r\n');
+    await new Promise(r=>setTimeout(r,delay));
+    await b.setRemoteDescription({type:'offer',sdp:bareA});
+    for(const c of aC) await b.addIceCandidate(c).catch(()=>{});
+    await b.setLocalDescription(await b.createAnswer());
+    const bareB=b.localDescription.sdp.split('\r\n').filter(l=>!l.startsWith('a=candidate')).join('\r\n');
+    await new Promise(r=>setTimeout(r,delay));
+    await a.setRemoteDescription({type:'answer',sdp:bareB});
+    for(const c of bC) await a.addIceCandidate(c).catch(()=>{});
+    await new Promise(r=>setTimeout(r,6000));
+    out.push({delay, a:a.connectionState, b:b.connectionState, aC:aC.length});
+    a.close(); b.close();
+  };
+  await run(0); await run(3000); await run(8000);
+  return out;
+});
+console.log(JSON.stringify(res,null,1));
+await browser.close();

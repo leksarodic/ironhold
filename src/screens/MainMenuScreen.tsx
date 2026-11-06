@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGameStore } from '@/store/useGameStore';
@@ -7,6 +7,8 @@ import { palette } from '@/theme/tokens';
 import { Divider, Frame, GoldPlate } from '@/ui/Frame';
 import { Outlined } from '@/ui/ResourceBar';
 import { WorldBackdrop } from '@/ui/WorldBackdrop';
+import { MultiplayerPanel } from './MultiplayerPanel';
+import { useNetStore } from '@/store/useNetStore';
 
 function MenuButton({
   label,
@@ -65,6 +67,9 @@ export function MainMenuScreen() {
   const character = useGameStore((s) => s.character);
   const insets = useSafeAreaInsets();
   const glow = useRef(new Animated.Value(0)).current;
+  const [partyOpen, setPartyOpen] = useState(false);
+  const peerCount = useNetStore((s) => s.peers.length);
+  const netRole = useNetStore((s) => s.role);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -78,6 +83,8 @@ export function MainMenuScreen() {
   }, [glow]);
 
   const glowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.75] });
+
+  if (partyOpen) return <MultiplayerPanel onClose={() => setPartyOpen(false)} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.stone[900] }}>
@@ -139,7 +146,18 @@ export function MainMenuScreen() {
             onPress={() => setScreen('select')}
             tone="iron"
           />
-          <MenuButton label="JOIN A PARTY" onPress={() => setScreen('game')} tone="gold" />
+          <MenuButton
+            label="CO-OP PARTY"
+            sub={
+              peerCount > 0
+                ? `${peerCount} ${peerCount === 1 ? 'ally' : 'allies'} linked`
+                : netRole !== 'solo'
+                  ? 'Session open'
+                  : 'Host or join over P2P'
+            }
+            onPress={() => setPartyOpen(true)}
+            tone="gold"
+          />
           <MenuButton label="SETTINGS" onPress={() => {}} tone="iron" />
         </View>
 
