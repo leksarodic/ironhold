@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Ironhold",
+    "slug": "ironhold",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "ironhold",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#14100c"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ironhold.coop",
+      "infoPlist": {
+        "UIRequiresFullScreen": true,
+        "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
+        "NSLocalNetworkUsageDescription": "Ironhold uses your local network to connect directly to nearby party members for peer-to-peer co-op play."
+      }
+    },
+    "android": {
+      "package": "com.ironhold.coop",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#14100c"
+      },
+      "permissions": ["android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-font"],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
