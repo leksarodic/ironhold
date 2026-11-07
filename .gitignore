@@ -14,5 +14,4 @@ npm-debug.*
 .env
 .env.*
 npm-cache/
-shots/
 dist/
