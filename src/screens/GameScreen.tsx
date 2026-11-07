@@ -10,6 +10,10 @@ import { useGameStore } from '@/store/useGameStore';
 import { useWorldStore } from '@/store/useWorldStore';
 import { useNetStore } from '@/store/useNetStore';
 import { useCoopSync, broadcastCast } from '@/net/useCoopSync';
+import { useInventoryStore } from '@/store/useInventoryStore';
+import { InventoryPanel } from '@/ui/InventoryPanel';
+import { LootWindow } from '@/ui/LootWindow';
+import { itemById } from '@/game/items';
 import { palette } from '@/theme/tokens';
 import { Joystick, type StickVector } from '@/ui/Joystick';
 import { ActionBar, Minimap, TargetFrame } from '@/ui/Hud';
@@ -40,6 +44,9 @@ export function GameScreen() {
   const selfId = useNetStore((s) => s.selfId);
   const [camera, setCamera] = useState<Camera>({ x: WORLD.center.x, y: WORLD.center.y + 6, zoom: 10 });
   const [paused, setPaused] = useState(false);
+  const [bagOpen, setBagOpen] = useState(false);
+  const [lootOpen, setLootOpen] = useState(false);
+  const inv = useInventoryStore();
   const stickRef = useRef<StickVector>({ x: 0, y: 0, mag: 0 });
 
   useCoopSync();
@@ -345,23 +352,80 @@ export function GameScreen() {
                 </Outlined>
               </GoldPlate>
             </Pressable>
+            {snapshot.loot.length > 0 && (
+              <Pressable
+                onPress={() => setLootOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Loot nearby"
+              >
+                <GoldPlate
+                  tone="ember"
+                  style={{ width: 38, height: 26, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Outlined size={8.5} color={palette.gold[200]} font="Cinzel_700Bold">
+                    LOOT
+                  </Outlined>
+                </GoldPlate>
+              </Pressable>
+            )}
             <Pressable
-              onPress={autoTarget}
+              onPress={() => setBagOpen(true)}
               accessibilityRole="button"
-              accessibilityLabel="Cycle target"
+              accessibilityLabel="Open inventory bag"
             >
               <GoldPlate
                 tone="iron"
                 style={{ width: 38, height: 26, alignItems: 'center', justifyContent: 'center' }}
               >
                 <Outlined size={8.5} color={palette.gold[200]} font="Cinzel_700Bold">
-                  TAB
+                  BAG
                 </Outlined>
               </GoldPlate>
             </Pressable>
           </View>
         </View>
       </View>
+
+      {/* Loot window when standing over a corpse's drop */}
+      {lootOpen && (
+        <LootWindow
+          loot={snapshot.loot}
+          onTake={(lootId) => {
+            const item = snapshot.loot.find((l) => l.id === lootId);
+            if (!item) return;
+            const added = inv.addItem(item.itemId, item.qty);
+            if (added > 0) {
+              useWorldStore.getState().takeLoot(lootId);
+              inv.setOpen(false);
+            } else {
+              useWorldStore.getState().pushLog('Your bags are full.', '#ff8f7a');
+            }
+          }}
+          onTakeAll={() => {
+            for (const l of [...snapshot.loot]) {
+              const added = inv.addItem(l.itemId, l.qty);
+              if (added > 0) useWorldStore.getState().takeLoot(l.id);
+            }
+            setLootOpen(false);
+          }}
+          onClose={() => setLootOpen(false)}
+        />
+      )}
+
+      {bagOpen && (
+        <InventoryPanel
+          slots={inv.slots}
+          equipment={inv.equipment}
+          onClose={() => setBagOpen(false)}
+          onEquip={inv.equipSlot}
+          onMove={inv.moveSlot}
+          onUse={inv.useConsumable}
+          selected={inv.pickedSlot}
+          onSelect={inv.pick}
+          onHover={inv.hover}
+          hovered={inv.hoveredSlot}
+        />
+      )}
 
       {paused && <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' }} />}
     </View>

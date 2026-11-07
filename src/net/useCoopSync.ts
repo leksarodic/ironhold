@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useWorldStore } from '@/store/useWorldStore';
 import { useNetStore, getHostSession } from '@/store/useNetStore';
 import { useGameStore } from '@/store/useGameStore';
-import type { CastPayload, InputPayload, WorldStatePayload } from '@/net/protocol';
+import type { CastPayload, InputPayload, LootClaimPayload, LootDropPayload, WorldStatePayload } from '@/net/protocol';
+import { itemById } from '@/game/items';
 import type { ClassId } from '@/game/classes';
 
 /**
@@ -66,6 +67,36 @@ export function useCoopSync() {
           case 'state': {
             if (world.isAuthority) break;
             world.applyRemoteState(m.payload as WorldStatePayload);
+            break;
+          }
+          case 'loot_drop': {
+            // Host announces a drop; joiners surface it in their loot window by
+            // inserting it into their local world's ground loot.
+            const p = m.payload as LootDropPayload;
+            if (!world.isAuthority && world.world) {
+              const existing = world.world.groundLoot.find((l) => l.id === p.lootId);
+              if (!existing) {
+                world.world.groundLoot.push({
+                  id: p.lootId,
+                  itemId: p.itemId,
+                  qty: p.qty,
+                  quality: p.quality,
+                  pos: { x: p.x, y: p.y },
+                  ownerId: p.ownerId,
+                  droppedAt: 0,
+                });
+              }
+            }
+            break;
+          }
+          case 'loot_claim': {
+            // Somebody took an item: remove it everywhere.
+            const p = m.payload as LootClaimPayload;
+            if (world.world) {
+              const idx = world.world.groundLoot.findIndex((l) => l.id === p.lootId);
+              if (idx >= 0) world.world.groundLoot.splice(idx, 1);
+              world.refresh();
+            }
             break;
           }
           case 'welcome': {

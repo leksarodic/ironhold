@@ -59,6 +59,8 @@ interface WorldStoreState {
   faceTowards: (angle: number) => void;
   castAbility: (abilityId: string) => void;
   selectTarget: (id: string | null) => void;
+  /** Remove a ground loot entry (after it has been taken). */
+  takeLoot: (lootId: string) => void;
   /** Advance the simulation; called from the frame loop. */
   step: (dt: number) => WorldEvent[];
   refresh: () => void;
@@ -229,6 +231,14 @@ export const useWorldStore = create<WorldStoreState>((set, get) => ({
 
   selectTarget: (id) => {
     set({ selectedTargetId: id });
+    get().refresh();
+  },
+
+  takeLoot: (lootId) => {
+    const { world } = get();
+    if (!world) return;
+    const idx = world.groundLoot.findIndex((l) => l.id === lootId);
+    if (idx >= 0) world.groundLoot.splice(idx, 1);
     get().refresh();
   },
 

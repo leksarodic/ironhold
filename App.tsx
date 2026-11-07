@@ -14,8 +14,11 @@ import { CharacterSelectScreen } from '@/screens/CharacterSelectScreen';
 import { GameScreen } from '@/screens/GameScreen';
 import { MainMenuScreen } from '@/screens/MainMenuScreen';
 import { useGameStore } from '@/store/useGameStore';
+import { installE2eHooks } from '@/store/e2e';
 import { palette } from '@/theme/tokens';
 import './global.css';
+
+installE2eHooks();
 
 function Router() {
   const screen = useGameStore((s) => s.screen);

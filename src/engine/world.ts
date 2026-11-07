@@ -1,4 +1,6 @@
 import { CLASSES, abilityById, type ClassId } from '@/game/classes';
+import { itemById } from '@/game/items';
+import { rollLoot } from './inventory';
 import { Rng } from './rng';
 import {
   ENEMY_TYPES,
@@ -583,7 +585,41 @@ export class World {
     });
     if (target.kind === 'enemy') {
       this.addText(target.pos, 'slain', '#e8c66a', 'info');
+      this.dropLootFor(target, source);
     }
+  }
+
+  /**
+   * Roll loot for a slain enemy and leave it on the ground.
+   *
+   * The roll is seeded from the enemy id so every peer can reproduce the same
+   * outcome; only the resulting drop needs to cross the wire.
+   */
+  private dropLootFor(enemy: Combatant, source: Combatant | null): void {
+    const seed = hashCombine(this.seed, enemy.id);
+    const roll = rollLoot(enemy.enemyType ?? 'boar', seed, enemy.level);
+    if (!roll.itemId) return;
+    const def = itemById(roll.itemId);
+    if (!def) return;
+    const qualityIndex = ['poor', 'common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(def.quality);
+    this.groundLoot.push({
+      id: `loot-${enemy.id}-${this.clock.toFixed(2)}`,
+      pos: { x: enemy.pos.x, y: enemy.pos.y },
+      itemId: roll.itemId,
+      qty: roll.qty,
+      quality: Math.max(0, qualityIndex),
+      ownerId: source?.id ?? null,
+      droppedAt: this.clock,
+    });
+    this.pushEvent({
+      type: 'loot',
+      actorId: source?.id ?? '',
+      targetId: enemy.id,
+      pos: { ...enemy.pos },
+      abilityId: roll.itemId,
+      amount: roll.qty,
+      at: this.clock,
+    });
   }
 
   private tickProjectiles(dt: number): void {
@@ -680,7 +716,12 @@ export class World {
     // Ground loot is picked up by walking over it.
     const remaining: GroundLoot[] = [];
     for (const l of this.groundLoot) {
-      const picker = this.players.find((p) => p.alive && dist(p.pos, l.pos) < 1.1);
+      const eligible = (p: Combatant) => {
+        // Loot rights last 10 seconds, then anyone may take it.
+        const exclusive = this.clock - l.droppedAt < 10;
+        return !exclusive || !l.ownerId || l.ownerId === p.id;
+      };
+      const picker = this.players.find((p) => p.alive && eligible(p) && dist(p.pos, l.pos) < 1.1);
       if (picker) {
         this.pushEvent({
           type: 'loot',
@@ -746,6 +787,16 @@ export class World {
   drainProjectiles(): Projectile[] {
     return this.projectiles;
   }
+}
+
+/** Mix a numeric seed with a string id without pulling in a hashing dependency. */
+function hashCombine(seed: number, id: string): number {
+  let h = seed >>> 0;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 export function clamp(v: number, lo: number, hi: number): number {
