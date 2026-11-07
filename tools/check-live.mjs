@@ -1,0 +1,15 @@
+import { chromium } from 'playwright-core';
+const EXEC='/Users/aleksa/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const browser=await chromium.launch({executablePath:EXEC,headless:true});
+const page=await browser.newPage({viewport:{width:393,height:852},deviceScaleFactor:2,isMobile:true,hasTouch:true});
+const errs=[];
+page.on('pageerror',e=>errs.push(e.message));
+page.on('console',m=>m.type()==='error'&&errs.push(m.text()));
+await page.goto('http://127.0.0.1:4173/',{waitUntil:'networkidle'});
+await page.waitForTimeout(2000);
+const menu=await page.getByText('IRONHOLD').count();
+console.log('menu title visible:', menu>0);
+console.log('can reach character select:', await page.getByText('CREATE CHARACTER').count()>0);
+console.log('errors:', errs.length? errs.slice(0,3).join(' | '):'none');
+await page.screenshot({path:'docs/screenshots/00-live.png'});
+await browser.close();

@@ -11,6 +11,7 @@ import { useWorldStore } from '@/store/useWorldStore';
 import { useNetStore } from '@/store/useNetStore';
 import { useCoopSync, broadcastCast } from '@/net/useCoopSync';
 import { useInventoryStore } from '@/store/useInventoryStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { InventoryPanel } from '@/ui/InventoryPanel';
 import { LootWindow } from '@/ui/LootWindow';
 import { itemById } from '@/game/items';
@@ -47,6 +48,7 @@ export function GameScreen() {
   const [bagOpen, setBagOpen] = useState(false);
   const [lootOpen, setLootOpen] = useState(false);
   const inv = useInventoryStore();
+  const settings = useSettingsStore();
   const stickRef = useRef<StickVector>({ x: 0, y: 0, mag: 0 });
 
   useCoopSync();
@@ -176,10 +178,11 @@ export function GameScreen() {
           projectiles={snapshot.projectiles}
           targetId={snapshot.targetId}
           localPlayerId={localPlayerId ?? undefined}
+          showGrid={settings.showGrid}
         />
       </Pressable>
 
-      <FloatingTexts texts={snapshot.texts} camera={camera} />
+      {settings.combatText && <FloatingTexts texts={snapshot.texts} camera={camera} />}
 
       {/* Top HUD */}
       <View
@@ -251,7 +254,7 @@ export function GameScreen() {
         style={{ position: 'absolute', left: 10, bottom: insets.bottom + 96 }}
         pointerEvents="box-none"
       >
-        <Joystick size={128} onChange={onStick} />
+        <Joystick size={settings.joystickSize} onChange={onStick} />
       </View>
 
       {/* Target / attack button mirroring the joystick on the right */}

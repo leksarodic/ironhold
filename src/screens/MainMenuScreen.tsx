@@ -8,6 +8,7 @@ import { Divider, Frame, GoldPlate } from '@/ui/Frame';
 import { Outlined } from '@/ui/ResourceBar';
 import { WorldBackdrop } from '@/ui/WorldBackdrop';
 import { MultiplayerPanel } from './MultiplayerPanel';
+import { SettingsScreen } from './SettingsScreen';
 import { useNetStore } from '@/store/useNetStore';
 
 function MenuButton({
@@ -68,6 +69,7 @@ export function MainMenuScreen() {
   const insets = useSafeAreaInsets();
   const glow = useRef(new Animated.Value(0)).current;
   const [partyOpen, setPartyOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const peerCount = useNetStore((s) => s.peers.length);
   const netRole = useNetStore((s) => s.role);
 
@@ -85,6 +87,7 @@ export function MainMenuScreen() {
   const glowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.75] });
 
   if (partyOpen) return <MultiplayerPanel onClose={() => setPartyOpen(false)} />;
+  if (settingsOpen) return <SettingsScreen onClose={() => setSettingsOpen(false)} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.stone[900] }}>
@@ -158,7 +161,7 @@ export function MainMenuScreen() {
             onPress={() => setPartyOpen(true)}
             tone="gold"
           />
-          <MenuButton label="SETTINGS" onPress={() => {}} tone="iron" />
+          <MenuButton label="SETTINGS" onPress={() => setSettingsOpen(true)} tone="iron" />
         </View>
 
         <Frame style={{ width: '100%', maxWidth: 380, alignSelf: 'center' }} radius={8}>

@@ -52,14 +52,15 @@ function buildDecorations(seed: number): Decoration[] {
 }
 
 function Tree({ x, y, s }: { x: number; y: number; s: number }) {
-  const h = 26 * s;
+  // Heights are in world units: a tree stands roughly 3-4 body widths tall.
+  const h = 3.2 * s;
   return (
     <G>
-      <Ellipse cx={x} cy={y} rx={9 * s} ry={3.4 * s} fill="#000" opacity={0.35} />
-      <Rect x={x - 1.8 * s} y={y - h * 0.36} width={3.6 * s} height={h * 0.38} fill="#3a2a1c" />
-      <Path d={`M${x} ${y - h} L${x + 9 * s} ${y - h * 0.36} L${x - 9 * s} ${y - h * 0.36} Z`} fill="#22361f" />
-      <Path d={`M${x} ${y - h * 0.86} L${x + 11 * s} ${y - h * 0.24} L${x - 11 * s} ${y - h * 0.24} Z`} fill="#2c4627" />
-      <Path d={`M${x} ${y - h * 0.62} L${x + 8.5 * s} ${y - h * 0.5} L${x} ${y - h * 0.42} Z`} fill="#3a5a33" opacity={0.9} />
+      <Ellipse cx={x} cy={y} rx={0.85 * s} ry={0.3 * s} fill="#000" opacity={0.35} />
+      <Rect x={x - 0.14 * s} y={y - h * 0.36} width={0.28 * s} height={h * 0.38} fill="#3a2a1c" />
+      <Path d={`M${x} ${y - h} L${x + 0.75 * s} ${y - h * 0.36} L${x - 0.75 * s} ${y - h * 0.36} Z`} fill="#22361f" />
+      <Path d={`M${x} ${y - h * 0.86} L${x + 0.92 * s} ${y - h * 0.24} L${x - 0.92 * s} ${y - h * 0.24} Z`} fill="#2c4627" />
+      <Path d={`M${x} ${y - h * 0.62} L${x + 0.7 * s} ${y - h * 0.5} L${x} ${y - h * 0.42} Z`} fill="#3a5a33" opacity={0.9} />
     </G>
   );
 }
@@ -67,9 +68,9 @@ function Tree({ x, y, s }: { x: number; y: number; s: number }) {
 function Rock({ x, y, s }: { x: number; y: number; s: number }) {
   return (
     <G>
-      <Ellipse cx={x} cy={y} rx={8 * s} ry={3 * s} fill="#000" opacity={0.3} />
-      <Path d={`M${x - 8 * s} ${y} L${x - 5 * s} ${y - 8 * s} L${x + 2 * s} ${y - 10 * s} L${x + 8 * s} ${y - 3 * s} L${x + 6 * s} ${y} Z`} fill="#4a4540" />
-      <Path d={`M${x - 5 * s} ${y - 8 * s} L${x + 2 * s} ${y - 10 * s} L${x + 3 * s} ${y - 5 * s} Z`} fill="#615a52" />
+      <Ellipse cx={x} cy={y} rx={0.75 * s} ry={0.26 * s} fill="#000" opacity={0.3} />
+      <Path d={`M${x - 0.7 * s} ${y} L${x - 0.44 * s} ${y - 0.66 * s} L${x + 0.18 * s} ${y - 0.82 * s} L${x + 0.7 * s} ${y - 0.26 * s} L${x + 0.52 * s} ${y} Z`} fill="#4a4540" />
+      <Path d={`M${x - 0.44 * s} ${y - 0.66 * s} L${x + 0.18 * s} ${y - 0.82 * s} L${x + 0.26 * s} ${y - 0.4 * s} Z`} fill="#615a52" />
     </G>
   );
 }
@@ -77,10 +78,10 @@ function Rock({ x, y, s }: { x: number; y: number; s: number }) {
 function Bush({ x, y, s }: { x: number; y: number; s: number }) {
   return (
     <G opacity={0.92}>
-      <Ellipse cx={x} cy={y} rx={7 * s} ry={3 * s} fill="#000" opacity={0.25} />
-      <Circle cx={x - 4 * s} cy={y - 3 * s} r={4.4 * s} fill="#2a3f24" />
-      <Circle cx={x + 3 * s} cy={y - 4 * s} r={5 * s} fill="#31502a" />
-      <Circle cx={x} cy={y - 6 * s} r={4.2 * s} fill="#3b5f31" />
+      <Ellipse cx={x} cy={y} rx={0.62 * s} ry={0.26 * s} fill="#000" opacity={0.25} />
+      <Circle cx={x - 0.34 * s} cy={y - 0.26 * s} r={0.38 * s} fill="#2a3f24" />
+      <Circle cx={x + 0.26 * s} cy={y - 0.34 * s} r={0.43 * s} fill="#31502a" />
+      <Circle cx={x} cy={y - 0.52 * s} r={0.36 * s} fill="#3b5f31" />
     </G>
   );
 }
@@ -88,8 +89,8 @@ function Bush({ x, y, s }: { x: number; y: number; s: number }) {
 function Flower({ x, y, s }: { x: number; y: number; s: number }) {
   return (
     <G>
-      <Circle cx={x} cy={y - 2 * s} r={1.6 * s} fill="#c9a24a" opacity={0.85} />
-      <Circle cx={x + 3 * s} cy={y} r={1.2 * s} fill="#8a6b3a" opacity={0.7} />
+      <Circle cx={x} cy={y - 0.16 * s} r={0.14 * s} fill="#c9a24a" opacity={0.85} />
+      <Circle cx={x + 0.26 * s} cy={y} r={0.1 * s} fill="#8a6b3a" opacity={0.7} />
     </G>
   );
 }
@@ -97,11 +98,11 @@ function Flower({ x, y, s }: { x: number; y: number; s: number }) {
 function Ruin({ x, y, s }: { x: number; y: number; s: number }) {
   return (
     <G>
-      <Ellipse cx={x} cy={y} rx={13 * s} ry={4.6 * s} fill="#000" opacity={0.3} />
-      <Rect x={x - 11 * s} y={y - 16 * s} width={6 * s} height={16 * s} fill="#514a40" />
-      <Rect x={x + 2 * s} y={y - 11 * s} width={7 * s} height={11 * s} fill="#463f36" />
-      <Rect x={x - 13 * s} y={y - 4 * s} width={26 * s} height={4 * s} fill="#3b352d" />
-      <Rect x={x - 11 * s} y={y - 16 * s} width={2 * s} height={16 * s} fill="#6b6357" opacity={0.55} />
+      <Ellipse cx={x} cy={y} rx={1.15 * s} ry={0.4 * s} fill="#000" opacity={0.3} />
+      <Rect x={x - 0.95 * s} y={y - 1.4 * s} width={0.5 * s} height={1.4 * s} fill="#514a40" />
+      <Rect x={x + 0.18 * s} y={y - 0.95 * s} width={0.6 * s} height={0.95 * s} fill="#463f36" />
+      <Rect x={x - 1.15 * s} y={y - 0.34 * s} width={2.3 * s} height={0.34 * s} fill="#3b352d" />
+      <Rect x={x - 0.95 * s} y={y - 1.4 * s} width={0.18 * s} height={1.4 * s} fill="#6b6357" opacity={0.55} />
     </G>
   );
 }
@@ -288,7 +289,7 @@ export function WorldRenderer({
       <Path
         d="M8 22 Q20 20 30 22 T56 20"
         stroke="#4a3b26"
-        strokeWidth={2.4}
+        strokeWidth={0.55}
         strokeLinecap="round"
         fill="none"
         opacity={0.55}
