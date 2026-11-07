@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "android": "expo start --android",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "build:web": "expo export --platform web --output-dir dist"
   },
   "dependencies": {
